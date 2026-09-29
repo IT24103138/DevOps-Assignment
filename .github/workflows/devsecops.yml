@@ -10,23 +10,44 @@ on:
       - main
 
 jobs:
-  build-test:
-
+  security-pipeline:
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout source code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: 20
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
+      - name: Dependency Scan
+        run: npm audit --audit-level=high
+
+      - name: Build Application
+        run: npm run build
+
+      - name: Run Tests
         run: npm test
+
+      - name: Semgrep SAST Scan
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: auto
+
+      - name: Gitleaks Secret Scan
+        uses: gitleaks/gitleaks-action@v2
+
+      - name: Build Docker Image
+        run: docker build -t juice-shop .
+
+      - name: Trivy Container Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: juice-shop
+          severity: HIGH,CRITICAL
+          exit-code: '1'
