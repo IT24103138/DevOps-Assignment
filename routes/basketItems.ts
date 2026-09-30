@@ -34,15 +34,18 @@ export function addBasketItem () {
     }
 
     const user = security.authenticatedUsers.from(req)
-    if (user && basketIds[0] && basketIds[0] !== 'undefined' && Number(user.bid) != Number(basketIds[0])) { // eslint-disable-line eqeqeq
+   // Require exactly one BasketId: duplicate keys would let the ownership check and the persisted value diverge
+    if (basketIds.length !== 1) {
+      res.status(400).send('{\'error\' : \'Invalid BasketId\'}')
+    } else if (!user || !user.bid || Number(user.bid) !== Number(basketIds[0])) {
       res.status(401).send('{\'error\' : \'Invalid BasketId\'}')
     } else {
       const basketItem = {
         ProductId: productIds[productIds.length - 1],
-        BasketId: basketIds[basketIds.length - 1],
+        BasketId: user.bid, // persist the server-side basket ID that was just verified
         quantity: quantities[quantities.length - 1]
       }
-      challengeUtils.solveIf(challenges.basketManipulateChallenge, () => { return user && basketItem.BasketId && basketItem.BasketId !== 'undefined' && user.bid != basketItem.BasketId }) // eslint-disable-line eqeqeq
+      challengeUtils.solveIf(challenges.basketManipulateChallenge, () => { return user && basketItem.BasketId && user.bid != basketItem.BasketId }) // eslint-disable-line eqeqeq
 
       const basketItemInstance = BasketItemModel.build(basketItem)
       try {
